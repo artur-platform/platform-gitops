@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: platform-gitops
+  title: Platform GitOps
+  description: Argo CD source of truth for Artur Platform workloads
+  annotations:
+    github.com/project-slug: artur-platform/platform-gitops
+spec:
+  type: service
+  lifecycle: experimental
+  owner: platform-engineering
+  system: artur-platform

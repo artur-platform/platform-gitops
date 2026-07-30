@@ -1,0 +1,45 @@
+name: Validate and merge Backstage GitOps updates
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - applications/**
+      - services/**
+
+concurrency:
+  group: backstage-gitops-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'backstage/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate YAML syntax
+        run: |
+          ruby -e 'require "yaml"; Dir["**/*.{yaml,yml}"].reject { |file| file.include?("/templates/") }.each { |file| YAML.load_stream(File.read(file)); puts "validated #{file}" }'
+      - name: Lint generated Helm charts
+        run: |
+          find services -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -n1 helm lint
+
+  merge:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge the validated platform-generated change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge "$PR_URL" --squash --delete-branch
